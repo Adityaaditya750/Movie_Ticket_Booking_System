@@ -20,6 +20,7 @@ const authRoutes = require('./route/authRoutes');
 // Mount Routes
 app.use('/api/auth', authRoutes);
 app.use("/api/profile", require("./route/profileRoutes"));
+app.use("/api/movies", require("./route/movieRoutes"));
 
 
 app.get('/', (req, res) => {
