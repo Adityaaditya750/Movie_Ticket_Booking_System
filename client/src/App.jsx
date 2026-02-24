@@ -11,11 +11,15 @@ import About from './pages/public/About';
 import Login from './pages/public/Login';
 import Register from './pages/public/Register';
 import Profile from './pages/user/Profile';
-import AdminDashboard from './pages/admin/AdminDashboard';
 
 // Route Guards
 import ProtectedRoute from './route/ProtectedRoute';
 import PublicRoute from './route/PublicRoute';
+import AdminDashboard from './pages/admin/components/AdminDashboard';
+import AdminManageUsers from './pages/admin/components/AdminManageUsers';
+import AdminMovies from './pages/admin/components/AdminMovie';
+import AdminShowTiming from './pages/admin/components/AdminAddShowTiming';
+import AdminTheatre from './pages/admin/components/AdminTheatre';
 
 function App() {
   return (
@@ -57,6 +61,10 @@ function App() {
       {/* Admin Routes with Admin Layout */}
       <Route path="/admin" element={<AdminLayout />}>
         <Route index element={<AdminDashboard />} />
+        <Route path='adminuser' element={<AdminManageUsers />} />
+        <Route path='movie' element={<AdminMovies />} />
+        <Route path='showtiming' element={<AdminShowTiming />} />
+        <Route path='theatre' element={<AdminTheatre />} />
       </Route>
       
       {/* Fallback */}
