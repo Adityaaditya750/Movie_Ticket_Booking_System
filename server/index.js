@@ -21,6 +21,11 @@ const authRoutes = require('./route/authRoutes');
 app.use('/api/auth', authRoutes);
 app.use("/api/profile", require("./route/profileRoutes"));
 app.use("/api/movies", require("./route/movieRoutes"));
+app.use("/api/theatres", require("./route/theatreRoutes"));
+app.use("/api/shows", require("./route/showRoutes"));
+app.use("/api/bookings", require("./route/bookingRoutes"));
+
+
 
 
 app.get('/', (req, res) => {
