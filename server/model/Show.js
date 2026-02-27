@@ -14,20 +14,10 @@ const showSchema = new mongoose.Schema(
       required: true
     },
 
-    showTime: {
-      type: Date,
-      required: true
-    },
+    showTime: { type: Date, required: true },
 
-    seatLayout: {
-      type: [String],
-      required: true
-    },
-
-    bookedSeats: {
-      type: [String],
-      default: []
-    },
+    seatLayout: { type: [String], required: true },
+    bookedSeats: { type: [String], default: [] },
 
     seatPrices: {
       type: Object,

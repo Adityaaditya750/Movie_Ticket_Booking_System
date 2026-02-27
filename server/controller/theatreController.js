@@ -1,8 +1,5 @@
 const Theatre = require("../model/Theatre");
 
-/* =========================
-   ADD THEATRE (ADMIN)
-========================= */
 exports.addTheatre = async (req, res) => {
   try {
     const { name, location, rows, columns } = req.body;
@@ -11,7 +8,7 @@ exports.addTheatre = async (req, res) => {
       name,
       location,
       rows,
-      columns,
+      columns
     });
 
     res.status(201).json({
@@ -23,9 +20,6 @@ exports.addTheatre = async (req, res) => {
   }
 };
 
-/* =========================
-   GET ALL THEATRES (PUBLIC)
-========================= */
 exports.getTheatres = async (req, res) => {
   const theatres = await Theatre.find();
   res.json(theatres);

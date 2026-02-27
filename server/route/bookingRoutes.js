@@ -2,20 +2,20 @@ const express = require("express");
 const router = express.Router();
 
 const { protect } = require("../middleware/authMiddleware");
+const { isAdmin } = require("../middleware/adminMiddleware");
 
 const {
   bookSeats,
   myBookings,
-  cancelBooking
+  cancelBooking,
+  scanTicket
 } = require("../controller/bookingController");
 
-// book seats
 router.post("/", protect, bookSeats);
-
-// my bookings
 router.get("/my", protect, myBookings);
-
-// cancel booking
 router.put("/cancel/:id", protect, cancelBooking);
+
+// scanner route (admin)
+router.post("/scan", protect, isAdmin, scanTicket);
 
 module.exports = router;

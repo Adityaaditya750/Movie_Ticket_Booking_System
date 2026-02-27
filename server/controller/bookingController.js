@@ -1,8 +1,12 @@
 const Booking = require("../model/Booking");
 const Show = require("../model/Show");
+const User = require("../model/User");
+
+const QRCode = require("qrcode");
+const { sendEmail } = require("../utils/sendEmail");
 
 /* =========================
-   BOOK TICKETS (USER)
+   BOOK SEATS (USER)
 ========================= */
 exports.bookSeats = async (req, res) => {
   try {
@@ -12,29 +16,25 @@ exports.bookSeats = async (req, res) => {
       return res.status(400).json({ message: "showId and seats array required" });
     }
 
-    const show = await Show.findById(showId);
+    const show = await Show.findById(showId)
+      .populate("movie", "title")
+      .populate("theatre", "name location");
 
-    if (!show) {
-      return res.status(404).json({ message: "Show not found" });
-    }
+    if (!show) return res.status(404).json({ message: "Show not found" });
 
-    // check show time is not passed
+    // show time check
     if (new Date(show.showTime) <= new Date()) {
       return res.status(400).json({ message: "Show time already passed" });
     }
 
-    // validate seat exists in layout
+    // validate seats exist
     const invalidSeats = seats.filter((s) => !show.seatLayout.includes(s));
     if (invalidSeats.length > 0) {
-      return res.status(400).json({
-        message: "Invalid seat(s)",
-        invalidSeats
-      });
+      return res.status(400).json({ message: "Invalid seats", invalidSeats });
     }
 
     // prevent double booking
     const alreadyBooked = seats.filter((s) => show.bookedSeats.includes(s));
-
     if (alreadyBooked.length > 0) {
       return res.status(400).json({
         message: "Some seats already booked",
@@ -42,20 +42,72 @@ exports.bookSeats = async (req, res) => {
       });
     }
 
-    // total price
-    const totalPrice = seats.length * show.price;
+    // calculate total price row-wise
+    let totalPrice = 0;
+    for (let seat of seats) {
+      const row = seat[0];
+      const rowPrice = show.seatPrices[row];
 
-    // 1) create booking
+      if (!rowPrice) {
+        return res.status(400).json({
+          message: `Price not set for row ${row}`
+        });
+      }
+      totalPrice += rowPrice;
+    }
+
+    // create booking
     const booking = await Booking.create({
       user: req.user._id,
       show: showId,
       seats,
-      totalPrice
+      totalPrice,
+      status: "booked",
+      qrExpiresAt: show.showTime
     });
 
-    // 2) update show booked seats
+    // update show bookedSeats
     show.bookedSeats.push(...seats);
     await show.save();
+
+    // generate QR
+    const qrData = JSON.stringify({
+      bookingId: booking._id,
+      showId: show._id,
+      movie: show.movie.title,
+      theatre: show.theatre.name,
+      showTime: show.showTime
+    });
+
+    const qrCode = await QRCode.toDataURL(qrData);
+
+    booking.qrData = qrData;
+    booking.qrCode = qrCode;
+    await booking.save();
+
+    // send email
+    const user = await User.findById(req.user._id);
+
+    await sendEmail({
+      to: user.email,
+      subject: "Movie Ticket Booking Confirmed 🎬",
+      text: `
+Booking Confirmed!
+
+Movie: ${show.movie.title}
+Theatre: ${show.theatre.name}
+Location: ${show.theatre.location}
+Show Time: ${show.showTime}
+
+Seats: ${seats.join(", ")}
+Total Price: ₹${totalPrice}
+
+Booking ID: ${booking._id}
+
+Note:
+Ticket can be cancelled only before 1 hour of showtime.
+`
+    });
 
     res.status(201).json({
       message: "Booking successful",
@@ -67,7 +119,7 @@ exports.bookSeats = async (req, res) => {
 };
 
 /* =========================
-   MY BOOKINGS (USER)
+   MY BOOKINGS
 ========================= */
 exports.myBookings = async (req, res) => {
   const bookings = await Booking.find({ user: req.user._id })
@@ -84,33 +136,35 @@ exports.myBookings = async (req, res) => {
 };
 
 /* =========================
-   CANCEL BOOKING (USER)
-   Only before show time
+   CANCEL BOOKING
+   (only before 1 hour)
 ========================= */
 exports.cancelBooking = async (req, res) => {
   try {
     const booking = await Booking.findById(req.params.id).populate("show");
 
-    if (!booking) {
-      return res.status(404).json({ message: "Booking not found" });
-    }
+    if (!booking) return res.status(404).json({ message: "Booking not found" });
 
-    // booking belongs to user
     if (booking.user.toString() !== req.user._id.toString()) {
       return res.status(403).json({ message: "Not allowed" });
     }
 
-    // already cancelled
     if (booking.status === "cancelled") {
       return res.status(400).json({ message: "Booking already cancelled" });
     }
 
-    // cancel only before show time
-    if (new Date(booking.show.showTime) <= new Date()) {
-      return res.status(400).json({ message: "Cannot cancel after show time" });
+    const showTime = new Date(booking.show.showTime);
+    const now = new Date();
+
+    const diffMinutes = (showTime - now) / (1000 * 60);
+
+    if (diffMinutes <= 60) {
+      return res.status(400).json({
+        message: "Cannot cancel ticket before 1 hour of show time"
+      });
     }
 
-    // remove booked seats from show
+    // restore seats
     const show = await Show.findById(booking.show._id);
 
     show.bookedSeats = show.bookedSeats.filter(
@@ -123,6 +177,63 @@ exports.cancelBooking = async (req, res) => {
     await booking.save();
 
     res.json({ message: "Booking cancelled successfully", booking });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
+/* =========================
+   SCAN TICKET (ADMIN)
+========================= */
+exports.scanTicket = async (req, res) => {
+  try {
+    const { bookingId } = req.body;
+
+    const booking = await Booking.findById(bookingId)
+      .populate("user", "name email phone")
+      .populate({
+        path: "show",
+        populate: [
+          { path: "movie", select: "title" },
+          { path: "theatre", select: "name location" }
+        ]
+      });
+
+    if (!booking) return res.status(404).json({ message: "Invalid ticket" });
+
+    if (booking.status === "cancelled") {
+      return res.status(400).json({ message: "Ticket is cancelled" });
+    }
+
+    // expire after show time
+    if (new Date() > new Date(booking.show.showTime)) {
+      return res.status(400).json({ message: "Ticket expired (show finished)" });
+    }
+
+    // already scanned
+    if (booking.isScanned) {
+      return res.status(400).json({
+        message: "Ticket already used",
+        scannedAt: booking.scannedAt
+      });
+    }
+
+    booking.isScanned = true;
+    booking.scannedAt = new Date();
+    await booking.save();
+
+    res.json({
+      message: "Ticket valid - entry allowed",
+      bookingDetails: {
+        bookingId: booking._id,
+        user: booking.user,
+        movie: booking.show.movie,
+        theatre: booking.show.theatre,
+        showTime: booking.show.showTime,
+        seats: booking.seats,
+        totalPrice: booking.totalPrice
+      }
+    });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
