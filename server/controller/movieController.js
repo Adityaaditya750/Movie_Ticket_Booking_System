@@ -7,12 +7,12 @@ const cloudinary = require("../config/cloudinary");
 exports.addMovie = async (req, res) => {
   try {
     const { title, description, duration, language, genre } = req.body;
-
+    
     // poster is mandatory
     if (!req.file) {
       return res.status(400).json({ message: "Movie poster is required" });
     }
-
+    
     // upload ONLY image to cloudinary
     const uploadResult = await cloudinary.uploader.upload(req.file.path, {
       folder: "movie_posters"

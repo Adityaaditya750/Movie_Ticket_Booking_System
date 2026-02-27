@@ -4,43 +4,80 @@ import EditMovieModal from "../modals/EditMovieModal";
 import DeleteModal from "../modals/DeleteMovie";
 import CreateMovieModal from "../modals/CreateMovieModal";
 
-const AdminMovie = () => {
-  const [movies, setMovies] = useState(() => {
-    const saved = localStorage.getItem("movies");
-    return saved ? JSON.parse(saved) : [];
-  });
+const API_URL = "http://localhost:8000/api/movies";
 
+const AdminMovie = () => {
+  const [movies, setMovies] = useState([]);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [selectedMovie, setSelectedMovie] = useState(null);
 
+  /* FETCH MOVIES */
+  const fetchMovies = async () => {
+    try {
+      const res = await fetch(API_URL);
+      const data = await res.json();
+      setMovies(data);
+    } catch (error) {
+      console.error("Failed to fetch movies", error);
+    }
+  };
+
   useEffect(() => {
-    localStorage.setItem("movies", JSON.stringify(movies));
-  }, [movies]);
+    fetchMovies();
+  }, []);
 
   /* CREATE */
-  const handleCreateMovie = (movie) => {
-    setMovies((prev) => [...prev, { ...movie, id: Date.now() }]);
-    setShowCreateModal(false);
+  const handleCreateMovie = async (movie) => {
+    try {
+      const res = await fetch(API_URL, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(movie),
+      });
+
+      if (res.ok) {
+        fetchMovies();
+        setShowCreateModal(false);
+      }
+    } catch (error) {
+      console.error("Create movie failed", error);
+    }
   };
 
   /* EDIT */
-  const handleEditMovie = (updatedMovie) => {
-    setMovies((prev) =>
-      prev.map((m) =>
-        m.id === updatedMovie.id ? updatedMovie : m
-      )
-    );
-    setShowEditModal(false);
+  const handleEditMovie = async (updatedMovie) => {
+    try {
+      const res = await fetch(`${API_URL}/${updatedMovie.id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(updatedMovie),
+      });
+
+      if (res.ok) {
+        fetchMovies();
+        setShowEditModal(false);
+      }
+    } catch (error) {
+      console.error("Update movie failed", error);
+    }
   };
 
   /* DELETE */
-  const handleDeleteMovie = () => {
-    setMovies((prev) =>
-      prev.filter((m) => m.id !== selectedMovie.id)
-    );
-    setShowDeleteModal(false);
+  const handleDeleteMovie = async () => {
+    try {
+      const res = await fetch(`${API_URL}/${selectedMovie.id}`, {
+        method: "DELETE",
+      });
+
+      if (res.ok) {
+        fetchMovies();
+        setShowDeleteModal(false);
+      }
+    } catch (error) {
+      console.error("Delete movie failed", error);
+    }
   };
 
   return (
@@ -90,24 +127,18 @@ const AdminMovie = () => {
                 className="relative z-10 mx-auto h-full object-contain"
               />
 
-              <div className="absolute inset-0 bg-black/30
-                              opacity-0 group-hover:opacity-100
-                              transition z-20 pointer-events-none" />
-
               {/* ACTION BUTTONS */}
               <div
                 className="absolute top-3 right-3 flex gap-2
-                           opacity-0 group-hover:opacity-100
-                           translate-y-1 group-hover:translate-y-0
-                           transition-all duration-300 z-40"
+                              opacity-0 group-hover:opacity-100
+                              transition-all duration-300 z-40"
               >
                 <button
                   onClick={() => {
                     setSelectedMovie(movie);
                     setShowEditModal(true);
                   }}
-                  className="p-2 rounded-full bg-black/80
-                             hover:bg-red-600 transition"
+                  className="p-2 rounded-full bg-black/80 hover:bg-red-600"
                 >
                   <FiEdit size={14} />
                 </button>
@@ -117,8 +148,7 @@ const AdminMovie = () => {
                     setSelectedMovie(movie);
                     setShowDeleteModal(true);
                   }}
-                  className="p-2 rounded-full bg-black/80
-                             hover:bg-red-600 transition"
+                  className="p-2 rounded-full bg-black/80 hover:bg-red-600"
                 >
                   <FiTrash2 size={14} />
                 </button>
