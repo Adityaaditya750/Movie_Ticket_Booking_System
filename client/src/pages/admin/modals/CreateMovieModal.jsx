@@ -1,47 +1,54 @@
 import React, { useState } from "react";
 
 const CreateMovieModal = ({ onClose, onCreate }) => {
-  const [movieData, setMovieData] = useState({
+  const [formData, setFormData] = useState({
     title: "",
     description: "",
-    genre: "",
     duration: "",
     language: "",
-    poster: "",
+    genreText: "",
+    posterFile: null,
   });
 
   const handleChange = (e) => {
     const { name, value, files } = e.target;
 
     if (name === "poster") {
-      const file = files[0];
-      if (file) {
-        setMovieData({
-          ...movieData,
-          poster: URL.createObjectURL(file),
-        });
-      }
+      setFormData({ ...formData, posterFile: files[0] });
     } else {
-      setMovieData({
-        ...movieData,
-        [name]: value,
-      });
+      setFormData({ ...formData, [name]: value });
     }
   };
 
   const handleSubmit = (e) => {
     e.preventDefault();
 
-    const allFieldsFilled = Object.values(movieData).every(
-      (value) => value !== ""
-    );
+    const genreArray = formData.genreText
+      .split(",")
+      .map((g) => g.trim())
+      .filter(Boolean);
 
-    if (!allFieldsFilled) {
-      alert("Please fill all fields before creating the movie.");
+    if (
+      !formData.title ||
+      !formData.duration ||
+      !formData.language ||
+      genreArray.length === 0 ||
+      !formData.posterFile
+    ) {
+      alert("Please fill all required fields");
       return;
     }
 
-    onCreate(movieData);
+    // 🔹 multipart/form-data
+    const movieFormData = new FormData();
+    movieFormData.append("title", formData.title);
+    movieFormData.append("description", formData.description);
+    movieFormData.append("duration", Number(formData.duration));
+    movieFormData.append("language", formData.language);
+    movieFormData.append("genre", JSON.stringify(genreArray)); // array
+    movieFormData.append("poster", formData.posterFile); // FILE
+
+    onCreate(movieFormData);
     onClose();
   };
 
@@ -53,10 +60,7 @@ const CreateMovieModal = ({ onClose, onCreate }) => {
           <h2 className="text-2xl font-bold text-red-500">
             🎬 Create New Movie
           </h2>
-          <button
-            onClick={onClose}
-            className="text-gray-400 hover:text-white text-xl"
-          >
+          <button onClick={onClose} className="text-gray-400 hover:text-white">
             ✕
           </button>
         </div>
@@ -64,61 +68,48 @@ const CreateMovieModal = ({ onClose, onCreate }) => {
         {/* Form */}
         <form onSubmit={handleSubmit} className="space-y-4">
           <input
-            type="text"
             name="title"
             placeholder="MOVIE TITLE"
-            value={movieData.title}
+            value={formData.title}
             onChange={handleChange}
             className="w-full rounded-lg bg-[#020617] px-4 py-3 border border-gray-600 text-white"
           />
 
           <input
-            type="text"
             name="description"
             placeholder="DESCRIPTION"
-            value={movieData.description}
+            value={formData.description}
             onChange={handleChange}
             className="w-full rounded-lg bg-[#020617] px-4 py-3 border border-gray-600 text-white"
           />
 
-          {/* GENRE SELECT (UPDATED) */}
-          <select
-            name="genre"
-            value={movieData.genre}
-            onChange={handleChange}
-            className="w-full rounded-lg bg-[#020617] px-4 py-3 border border-gray-600 text-white"
-          >
-            <option value="" disabled>
-              SELECT GENRE
-            </option>
-            <option value="Action">Action</option>
-            <option value="Drama">Drama</option>
-            <option value="Comedy">Comedy</option>
-            <option value="Romance">Romance</option>
-            <option value="Thriller">Thriller</option>
-            <option value="Horror">Horror</option>
-            <option value="Sci-Fi">Sci-Fi</option>
-            <option value="Fantasy">Fantasy</option>
-          </select>
-
+          {/* GENRE */}
           <input
-            type="time"
-            name="duration"
-            value={movieData.duration}
+            name="genreText"
+            placeholder="GENRES (Action, Drama, Thriller)"
+            value={formData.genreText}
             onChange={handleChange}
             className="w-full rounded-lg bg-[#020617] px-4 py-3 border border-gray-600 text-white"
           />
 
-          {/* LANGUAGE SELECT */}
+          {/* DURATION */}
+          <input
+            type="number"
+            name="duration"
+            placeholder="DURATION (minutes)"
+            value={formData.duration}
+            onChange={handleChange}
+            className="w-full rounded-lg bg-[#020617] px-4 py-3 border border-gray-600 text-white"
+          />
+
+          {/* LANGUAGE */}
           <select
             name="language"
-            value={movieData.language}
+            value={formData.language}
             onChange={handleChange}
             className="w-full rounded-lg bg-[#020617] px-4 py-3 border border-gray-600 text-white"
           >
-            <option value="" disabled>
-              SELECT LANGUAGE
-            </option>
+            <option value="">SELECT LANGUAGE</option>
             <option value="Odia">Odia</option>
             <option value="Hindi">Hindi</option>
             <option value="English">English</option>
@@ -127,7 +118,7 @@ const CreateMovieModal = ({ onClose, onCreate }) => {
             <option value="Malayalam">Malayalam</option>
           </select>
 
-          {/* FILE INPUT */}
+          {/* POSTER FILE */}
           <input
             type="file"
             name="poster"
@@ -137,17 +128,17 @@ const CreateMovieModal = ({ onClose, onCreate }) => {
           />
 
           {/* Buttons */}
-          <div className="flex justify-end gap-4 mt-6">
+          <div className="flex justify-end gap-4 pt-4">
             <button
               type="button"
               onClick={onClose}
-              className="bg-gray-700 hover:bg-gray-600 px-6 py-2 rounded"
+              className="bg-gray-700 px-6 py-2 rounded"
             >
               Cancel
             </button>
             <button
               type="submit"
-              className="bg-red-600 hover:bg-red-700 px-6 py-2 rounded font-semibold"
+              className="bg-red-600 px-6 py-2 rounded font-semibold"
             >
               Create Movie
             </button>
